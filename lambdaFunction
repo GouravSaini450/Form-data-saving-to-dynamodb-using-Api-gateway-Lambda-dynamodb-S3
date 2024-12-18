@@ -1,0 +1,60 @@
+import json
+import boto3
+import uuid
+from botocore.exceptions import ClientError
+
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('UserDetails')  # Replace with your DynamoDB table name
+
+def lambda_handler(event, context):
+    print("Lambda function started.")  # This will appear in CloudWatch logs
+
+    try:
+        # Log the full event received to debug the structure
+        print(f"Event received: {json.dumps(event)}")
+
+        # Directly access the fields in the event instead of assuming it is inside 'body'
+        name = event.get("name")
+        email = event.get("email")
+
+        print(f"Received name: {name}, email: {email}")  # Log received data
+
+        # Check if name or email is None, which indicates a problem with the request
+        if not name or not email:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Name and email are required.'})
+            }
+
+        # Generate a unique ID for each user
+        user_id = str(uuid.uuid4())
+        print(f"Generated user_id: {user_id}")
+
+        # Insert data into DynamoDB
+        response = table.put_item(
+            Item={
+                'id': user_id,  # Include the primary key (id)
+                'name': name,
+                'email': email
+            }
+        )
+
+        print(f"DynamoDB response: {response}")  # Log the DynamoDB response
+
+        return {
+            'statusCode': 200,
+            'body': json.dumps({'message': f"Hello {name}, your email '{email}' has been registered successfully!"})
+        }
+    except ClientError as e:
+        print(f"Error: {e}")  # Log errors
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)})
+        }
+    except Exception as e:
+        print(f"Unexpected error: {e}")  # Log unexpected errors
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': f"Unexpected error: {str(e)}"})
+        }
+
